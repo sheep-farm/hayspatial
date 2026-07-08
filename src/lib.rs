@@ -15,11 +15,10 @@ pub fn morans_i(values: Vec<f64>, weights: Vec<Vec<f64>>) -> f64 {
     
     let mean: f64 = values.iter().sum::<f64>() / n as f64;
     let numerator: f64 = values.iter().enumerate().map(|(i, &yi)| {
-        let deviation_i = yi - mean;
         weights.iter().take(n).map(|row| {
             if let Some(&wj) = row.get(i) {
                 let yj = values.iter().nth(i).unwrap_or(&0.0);
-                wj * (yj - mean) * deviation_i
+                wj * (yj - mean) * (yi - mean)
             } else {
                 0.0
             }
@@ -81,7 +80,7 @@ pub fn spatial_lag(values: Vec<f64>, weights: Vec<Vec<f64>>) -> Vec<f64> {
         return vec![0.0; n];
     }
     
-    values.iter().enumerate().map(|(i, &yi)| {
+    values.iter().enumerate().map(|(i, _yi)| {
         weights.iter().take(n).map(|row| {
             if let Some(&wj) = row.get(i) {
                 let yj = values.iter().nth(i).unwrap_or(&0.0);
@@ -194,7 +193,7 @@ pub fn getis_ord_g(values: Vec<f64>, weights: Vec<Vec<f64>>) -> Vec<f64> {
     }
     
     let mean: f64 = values.iter().sum::<f64>() / n as f64;
-    let s2: f64 = values.iter().map(|&y| (y - mean).powi(2)).sum() / n as f64;
+    let s2: f64 = values.iter().map(|&y| (y - mean).powi(2)).sum::<f64>() / n as f64;
     
     if s2 == 0.0 {
         return vec![0.0; n];
@@ -283,7 +282,27 @@ pub fn spatial_weights_knn(x_coords: Vec<f64>, y_coords: Vec<f64>, k: i64) -> Ve
 /// max_lag: maximum lag
 #[hayashi_fn]
 pub fn spatial_correlogram(values: Vec<f64>, weights: Vec<Vec<f64>>, max_lag: i64) -> Vec<f64> {
-    (0..=max_lag).map(|lag| spatial_autocorrelation(values.clone(), weights.clone(), lag)).collect()
+    (0..=max_lag).map(|lag| {
+        let n = values.len();
+        let lag = lag as usize;
+        if n <= lag || weights.is_empty() {
+            return 0.0;
+        }
+        
+        let mean: f64 = values.iter().sum::<f64>() / n as f64;
+        let numerator: f64 = values.iter().skip(lag).enumerate().map(|(i, &yi)| {
+            let yj = values[i];
+            (yi - mean) * (yj - mean)
+        }).sum();
+        
+        let denominator: f64 = values.iter().map(|&y| (y - mean).powi(2)).sum();
+        
+        if denominator == 0.0 {
+            return 0.0;
+        }
+        
+        numerator / denominator
+    }).collect()
 }
 
 #[cfg(test)]
