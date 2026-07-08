@@ -48,7 +48,6 @@ pub fn gearys_c(values: Vec<f64>, weights: Vec<Vec<f64>>) -> f64 {
     
     let mean: f64 = values.iter().sum::<f64>() / n as f64;
     let numerator: f64 = values.iter().enumerate().map(|(i, &yi)| {
-        let deviation_i = yi - mean;
         weights.iter().take(n).map(|row| {
             if let Some(&wj) = row.get(i) {
                 let yj = values.iter().nth(i).unwrap_or(&0.0);
@@ -160,14 +159,13 @@ pub fn local_moran(values: Vec<f64>, weights: Vec<Vec<f64>>) -> Vec<f64> {
     }
     
     let mean: f64 = values.iter().sum::<f64>() / n as f64;
-    let variance: f64 = values.iter().map(|&y| (y - mean).powi(2)).sum() / n as f64;
+    let variance: f64 = values.iter().map(|&y| (y - mean).powi(2)).sum::<f64>() / n as f64;
     
     if variance == 0.0 {
         return vec![0.0; n];
     }
     
-    values.iter().enumerate().map(|(i, &yi)| {
-        let deviation_i = yi - mean;
+    values.iter().enumerate().map(|(i, _yi)| {
         let local_sum: f64 = weights.iter().take(n).map(|row| {
             if let Some(&wj) = row.get(i) {
                 let yj = values.iter().nth(i).unwrap_or(&0.0);
@@ -177,6 +175,7 @@ pub fn local_moran(values: Vec<f64>, weights: Vec<Vec<f64>>) -> Vec<f64> {
             }
         }).sum::<f64>();
         
+        let yi = values.get(i).unwrap_or(&0.0);
         (yi - mean) / variance * local_sum
     }).collect()
 }
@@ -199,7 +198,7 @@ pub fn getis_ord_g(values: Vec<f64>, weights: Vec<Vec<f64>>) -> Vec<f64> {
         return vec![0.0; n];
     }
     
-    values.iter().enumerate().map(|(i, &yi)| {
+    values.iter().enumerate().map(|(i, _yi)| {
         let local_sum: f64 = weights.iter().take(n).map(|row| {
             if let Some(&wj) = row.get(i) {
                 let yj = values.iter().nth(i).unwrap_or(&0.0);
