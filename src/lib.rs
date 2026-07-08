@@ -1,6 +1,4 @@
 use hayashi_plugin_sdk::{hayashi_fn, hayashi_plugin};
-use hayashi_plugin_sdk::arrow::array::{ArrayRef, Float64Array};
-use std::collections::HashMap;
 
 hayashi_plugin!();
 
