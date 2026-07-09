@@ -1,6 +1,6 @@
 [package]
 name = "hayspatial"
-version = "0.1.1"
+version = "0.1.2"
 edition = "2021"
 description = "Spatial econometrics plugin for Hayashi"
 license = "MIT"
