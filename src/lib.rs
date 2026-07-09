@@ -13,25 +13,33 @@ pub fn morans_i(values: Vec<f64>, weights: Vec<Vec<f64>>) -> f64 {
     if n == 0 || weights.is_empty() {
         return 0.0;
     }
-    
+
     let mean: f64 = values.iter().sum::<f64>() / n as f64;
-    let numerator: f64 = values.iter().enumerate().map(|(i, &yi)| {
-        weights.iter().take(n).map(|row| {
-            if let Some(&wj) = row.get(i) {
-                let yj = values.get(i).unwrap_or(&0.0);
-                wj * (yj - mean) * (yi - mean)
-            } else {
-                0.0
-            }
-        }).sum::<f64>()
-    }).sum();
-    
+    let numerator: f64 = values
+        .iter()
+        .enumerate()
+        .map(|(i, &yi)| {
+            weights
+                .iter()
+                .take(n)
+                .map(|row| {
+                    if let Some(&wj) = row.get(i) {
+                        let yj = values.get(i).unwrap_or(&0.0);
+                        wj * (yj - mean) * (yi - mean)
+                    } else {
+                        0.0
+                    }
+                })
+                .sum::<f64>()
+        })
+        .sum();
+
     let denominator: f64 = values.iter().map(|&y| (y - mean).powi(2)).sum();
-    
+
     if denominator == 0.0 {
         return 0.0;
     }
-    
+
     let total_weights: f64 = weights.iter().map(|row| row.iter().sum::<f64>()).sum();
     numerator / denominator * (n as f64 / total_weights)
 }
@@ -46,25 +54,33 @@ pub fn gearys_c(values: Vec<f64>, weights: Vec<Vec<f64>>) -> f64 {
     if n == 0 || weights.is_empty() {
         return 1.0;
     }
-    
+
     let mean: f64 = values.iter().sum::<f64>() / n as f64;
-    let numerator: f64 = values.iter().enumerate().map(|(i, &yi)| {
-        weights.iter().take(n).map(|row| {
-            if let Some(&wj) = row.get(i) {
-                let yj = values.get(i).unwrap_or(&0.0);
-                wj * (yj - yi).powi(2)
-            } else {
-                0.0
-            }
-        }).sum::<f64>()
-    }).sum();
-    
+    let numerator: f64 = values
+        .iter()
+        .enumerate()
+        .map(|(i, &yi)| {
+            weights
+                .iter()
+                .take(n)
+                .map(|row| {
+                    if let Some(&wj) = row.get(i) {
+                        let yj = values.get(i).unwrap_or(&0.0);
+                        wj * (yj - yi).powi(2)
+                    } else {
+                        0.0
+                    }
+                })
+                .sum::<f64>()
+        })
+        .sum();
+
     let denominator: f64 = values.iter().map(|&y| (y - mean).powi(2)).sum();
-    
+
     if denominator == 0.0 {
         return 1.0;
     }
-    
+
     let total_weights: f64 = weights.iter().map(|row| row.iter().sum::<f64>()).sum();
     (n as f64 / total_weights) * numerator / denominator
 }
@@ -79,17 +95,25 @@ pub fn spatial_lag(values: Vec<f64>, weights: Vec<Vec<f64>>) -> Vec<f64> {
     if n == 0 || weights.is_empty() {
         return vec![0.0; n];
     }
-    
-    values.iter().enumerate().map(|(i, _yi)| {
-        weights.iter().take(n).map(|row| {
-            if let Some(&wj) = row.get(i) {
-                let yj = values.get(i).unwrap_or(&0.0);
-                wj * yj
-            } else {
-                0.0
-            }
-        }).sum::<f64>()
-    }).collect()
+
+    values
+        .iter()
+        .enumerate()
+        .map(|(i, _yi)| {
+            weights
+                .iter()
+                .take(n)
+                .map(|row| {
+                    if let Some(&wj) = row.get(i) {
+                        let yj = values.get(i).unwrap_or(&0.0);
+                        wj * yj
+                    } else {
+                        0.0
+                    }
+                })
+                .sum::<f64>()
+        })
+        .collect()
 }
 
 /// 4. distance_matrix(x_coords, y_coords)
@@ -100,7 +124,7 @@ pub fn spatial_lag(values: Vec<f64>, weights: Vec<Vec<f64>>) -> Vec<f64> {
 pub fn distance_matrix(x_coords: Vec<f64>, y_coords: Vec<f64>) -> Vec<Vec<f64>> {
     let n = x_coords.len();
     let mut matrix = vec![vec![0.0; n]; n];
-    
+
     for i in 0..n {
         for j in 0..n {
             let dx = x_coords[i] - x_coords[j];
@@ -108,7 +132,7 @@ pub fn distance_matrix(x_coords: Vec<f64>, y_coords: Vec<f64>) -> Vec<Vec<f64>> 
             matrix[i][j] = (dx * dx + dy * dy).sqrt();
         }
     }
-    
+
     matrix
 }
 
@@ -118,10 +142,14 @@ pub fn distance_matrix(x_coords: Vec<f64>, y_coords: Vec<f64>) -> Vec<Vec<f64>> 
 /// y_coords: y coordinates
 /// alpha: distance decay parameter
 #[hayashi_fn]
-pub fn inverse_distance_weights(x_coords: Vec<f64>, y_coords: Vec<f64>, alpha: f64) -> Vec<Vec<f64>> {
+pub fn inverse_distance_weights(
+    x_coords: Vec<f64>,
+    y_coords: Vec<f64>,
+    alpha: f64,
+) -> Vec<Vec<f64>> {
     let n = x_coords.len();
     let mut weights = vec![vec![0.0; n]; n];
-    
+
     for i in 0..n {
         for j in 0..n {
             if i != j {
@@ -134,7 +162,7 @@ pub fn inverse_distance_weights(x_coords: Vec<f64>, y_coords: Vec<f64>, alpha: f
             }
         }
     }
-    
+
     // Row normalize
     #[allow(clippy::needless_range_loop)]
     for i in 0..n {
@@ -145,7 +173,7 @@ pub fn inverse_distance_weights(x_coords: Vec<f64>, y_coords: Vec<f64>, alpha: f
             }
         }
     }
-    
+
     weights
 }
 
@@ -159,27 +187,35 @@ pub fn local_moran(values: Vec<f64>, weights: Vec<Vec<f64>>) -> Vec<f64> {
     if n == 0 || weights.is_empty() {
         return vec![0.0; n];
     }
-    
+
     let mean: f64 = values.iter().sum::<f64>() / n as f64;
     let variance: f64 = values.iter().map(|&y| (y - mean).powi(2)).sum::<f64>() / n as f64;
-    
+
     if variance == 0.0 {
         return vec![0.0; n];
     }
-    
-    values.iter().enumerate().map(|(i, _yi)| {
-        let local_sum: f64 = weights.iter().take(n).map(|row| {
-            if let Some(&wj) = row.get(i) {
-                let yj = values.get(i).unwrap_or(&0.0);
-                wj * (yj - mean)
-            } else {
-                0.0
-            }
-        }).sum::<f64>();
-        
-        let yi = values.get(i).unwrap_or(&0.0);
-        (yi - mean) / variance * local_sum
-    }).collect()
+
+    values
+        .iter()
+        .enumerate()
+        .map(|(i, _yi)| {
+            let local_sum: f64 = weights
+                .iter()
+                .take(n)
+                .map(|row| {
+                    if let Some(&wj) = row.get(i) {
+                        let yj = values.get(i).unwrap_or(&0.0);
+                        wj * (yj - mean)
+                    } else {
+                        0.0
+                    }
+                })
+                .sum::<f64>();
+
+            let yi = values.get(i).unwrap_or(&0.0);
+            (yi - mean) / variance * local_sum
+        })
+        .collect()
 }
 
 /// 7. getis_ord_g(values, weights)
@@ -192,28 +228,50 @@ pub fn getis_ord_g(values: Vec<f64>, weights: Vec<Vec<f64>>) -> Vec<f64> {
     if n == 0 || weights.is_empty() {
         return vec![0.0; n];
     }
-    
+
     let mean: f64 = values.iter().sum::<f64>() / n as f64;
     let s2: f64 = values.iter().map(|&y| (y - mean).powi(2)).sum::<f64>() / n as f64;
-    
+
     if s2 == 0.0 {
         return vec![0.0; n];
     }
-    
-    values.iter().enumerate().map(|(i, _yi)| {
-        let local_sum: f64 = weights.iter().take(n).map(|row| {
-            if let Some(&wj) = row.get(i) {
-                let yj = values.get(i).unwrap_or(&0.0);
-                wj * yj
-            } else {
-                0.0
-            }
-        }).sum::<f64>();
-        
-        let local_mean = local_sum / weights.iter().take(n).map(|row| row.iter().sum::<f64>()).sum::<f64>();
-        
-        (local_mean - mean) / (s2.sqrt() * ((weights.iter().take(n).map(|row| row.iter().sum::<f64>()).sum::<f64>() - 1.0) / (n - 1) as f64).sqrt())
-    }).collect()
+
+    values
+        .iter()
+        .enumerate()
+        .map(|(i, _yi)| {
+            let local_sum: f64 = weights
+                .iter()
+                .take(n)
+                .map(|row| {
+                    if let Some(&wj) = row.get(i) {
+                        let yj = values.get(i).unwrap_or(&0.0);
+                        wj * yj
+                    } else {
+                        0.0
+                    }
+                })
+                .sum::<f64>();
+
+            let local_mean = local_sum
+                / weights
+                    .iter()
+                    .take(n)
+                    .map(|row| row.iter().sum::<f64>())
+                    .sum::<f64>();
+
+            (local_mean - mean)
+                / (s2.sqrt()
+                    * ((weights
+                        .iter()
+                        .take(n)
+                        .map(|row| row.iter().sum::<f64>())
+                        .sum::<f64>()
+                        - 1.0)
+                        / (n - 1) as f64)
+                        .sqrt())
+        })
+        .collect()
 }
 
 /// 8. spatial_autocorrelation(values, weights, lag)
@@ -228,19 +286,24 @@ pub fn spatial_autocorrelation(values: Vec<f64>, weights: Vec<Vec<f64>>, lag: i6
     if n <= lag || weights.is_empty() {
         return 0.0;
     }
-    
+
     let mean: f64 = values.iter().sum::<f64>() / n as f64;
-    let numerator: f64 = values.iter().skip(lag).enumerate().map(|(i, &yi)| {
-        let yj = values[i];
-        (yi - mean) * (yj - mean)
-    }).sum();
-    
+    let numerator: f64 = values
+        .iter()
+        .skip(lag)
+        .enumerate()
+        .map(|(i, &yi)| {
+            let yj = values[i];
+            (yi - mean) * (yj - mean)
+        })
+        .sum();
+
     let denominator: f64 = values.iter().map(|&y| (y - mean).powi(2)).sum();
-    
+
     if denominator == 0.0 {
         return 0.0;
     }
-    
+
     numerator / denominator
 }
 
@@ -254,25 +317,27 @@ pub fn spatial_weights_knn(x_coords: Vec<f64>, y_coords: Vec<f64>, k: i64) -> Ve
     let n = x_coords.len();
     let k = k.min(n as i64 - 1) as usize;
     let mut weights = vec![vec![0.0; n]; n];
-    
+
     for i in 0..n {
-        let mut distances: Vec<(usize, f64)> = (0..n).map(|j| {
-            if i == j {
-                (j, f64::INFINITY)
-            } else {
-                let dx = x_coords[i] - x_coords[j];
-                let dy = y_coords[i] - y_coords[j];
-                (j, (dx * dx + dy * dy).sqrt())
-            }
-        }).collect();
-        
+        let mut distances: Vec<(usize, f64)> = (0..n)
+            .map(|j| {
+                if i == j {
+                    (j, f64::INFINITY)
+                } else {
+                    let dx = x_coords[i] - x_coords[j];
+                    let dy = y_coords[i] - y_coords[j];
+                    (j, (dx * dx + dy * dy).sqrt())
+                }
+            })
+            .collect();
+
         distances.sort_by(|a, b| a.1.total_cmp(&b.1));
-        
+
         for (idx, _) in distances.iter().take(k) {
             weights[i][*idx] = 1.0 / k as f64;
         }
     }
-    
+
     weights
 }
 
@@ -283,27 +348,34 @@ pub fn spatial_weights_knn(x_coords: Vec<f64>, y_coords: Vec<f64>, k: i64) -> Ve
 /// max_lag: maximum lag
 #[hayashi_fn]
 pub fn spatial_correlogram(values: Vec<f64>, weights: Vec<Vec<f64>>, max_lag: i64) -> Vec<f64> {
-    (0..=max_lag).map(|lag| {
-        let n = values.len();
-        let lag = lag as usize;
-        if n <= lag || weights.is_empty() {
-            return 0.0;
-        }
-        
-        let mean: f64 = values.iter().sum::<f64>() / n as f64;
-        let numerator: f64 = values.iter().skip(lag).enumerate().map(|(i, &yi)| {
-            let yj = values[i];
-            (yi - mean) * (yj - mean)
-        }).sum();
-        
-        let denominator: f64 = values.iter().map(|&y| (y - mean).powi(2)).sum();
-        
-        if denominator == 0.0 {
-            return 0.0;
-        }
-        
-        numerator / denominator
-    }).collect()
+    (0..=max_lag)
+        .map(|lag| {
+            let n = values.len();
+            let lag = lag as usize;
+            if n <= lag || weights.is_empty() {
+                return 0.0;
+            }
+
+            let mean: f64 = values.iter().sum::<f64>() / n as f64;
+            let numerator: f64 = values
+                .iter()
+                .skip(lag)
+                .enumerate()
+                .map(|(i, &yi)| {
+                    let yj = values[i];
+                    (yi - mean) * (yj - mean)
+                })
+                .sum();
+
+            let denominator: f64 = values.iter().map(|&y| (y - mean).powi(2)).sum();
+
+            if denominator == 0.0 {
+                return 0.0;
+            }
+
+            numerator / denominator
+        })
+        .collect()
 }
 
 #[cfg(test)]
