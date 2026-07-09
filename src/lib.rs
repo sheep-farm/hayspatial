@@ -1,4 +1,5 @@
 #![allow(clippy::not_unsafe_ptr_arg_deref)]
+use hayashi_plugin_sdk::value::Geometry;
 use hayashi_plugin_sdk::{hayashi_fn, hayashi_plugin};
 
 hayashi_plugin!();
@@ -378,6 +379,78 @@ pub fn spatial_correlogram(values: Vec<f64>, weights: Vec<Vec<f64>>, max_lag: i6
         .collect()
 }
 
+/// wkt_to_coords(geometries) -> {"x": Vec<f64>, "y": Vec<f64>}
+///
+/// Extrai as coordenadas lon/lat de uma lista de geometrias WKT `POINT(lon lat)`.
+/// Retorna dois vetores paralelos `x` (longitude) e `y` (latitude), prontos para
+/// uso em `distance_matrix`, `spatial_weights_knn` e demais funções hayspatial.
+///
+/// Geometrias que não são POINT (polígonos, linhas) retornam o centroide da
+/// bounding box como ponto representativo.
+///
+/// # Exemplo (.hay)
+/// ```hay
+/// let estados = haygeobr::read_state({})
+/// let geoms = haygeobr::geometry_col(estados)
+/// let coords = hayspatial::wkt_to_coords(geoms)
+/// let W = hayspatial::spatial_weights_knn(coords["x"], coords["y"], 4)
+/// ```
+#[hayashi_fn]
+pub fn wkt_to_coords(geometries: Vec<Geometry>) -> std::collections::HashMap<String, Vec<f64>> {
+    let mut xs = Vec::with_capacity(geometries.len());
+    let mut ys = Vec::with_capacity(geometries.len());
+
+    for geom in &geometries {
+        let wkt = geom.wkt().trim();
+        let (x, y) = parse_wkt_centroid(wkt);
+        xs.push(x);
+        ys.push(y);
+    }
+
+    let mut out = std::collections::HashMap::new();
+    out.insert("x".to_string(), xs);
+    out.insert("y".to_string(), ys);
+    out
+}
+
+/// Extrai um ponto representativo (centroide aproximado) de WKT.
+fn parse_wkt_centroid(wkt: &str) -> (f64, f64) {
+    // POINT(lon lat) ou POINT (lon lat)
+    if let Some(rest) = wkt.to_uppercase().strip_prefix("POINT") {
+        let inner = rest.trim().trim_matches(['(', ')']).trim();
+        let mut parts = inner.split_whitespace();
+        let x = parts.next().and_then(|s| s.parse().ok()).unwrap_or(f64::NAN);
+        let y = parts.next().and_then(|s| s.parse().ok()).unwrap_or(f64::NAN);
+        return (x, y);
+    }
+
+    // Para qualquer outra geometria: extrair todos os números e calcular bbox centroid
+    let coords: Vec<f64> = wkt
+        .split(|c: char| !c.is_ascii_digit() && c != '-' && c != '.')
+        .filter(|s| !s.is_empty())
+        .filter_map(|s| s.parse::<f64>().ok())
+        .collect();
+
+    if coords.len() < 2 {
+        return (f64::NAN, f64::NAN);
+    }
+
+    // Pares (x, y) interleaved
+    let (mut min_x, mut max_x) = (f64::MAX, f64::MIN);
+    let (mut min_y, mut max_y) = (f64::MAX, f64::MIN);
+    let mut i = 0;
+    while i + 1 < coords.len() {
+        let cx = coords[i];
+        let cy = coords[i + 1];
+        if cx < min_x { min_x = cx; }
+        if cx > max_x { max_x = cx; }
+        if cy < min_y { min_y = cy; }
+        if cy > max_y { max_y = cy; }
+        i += 2;
+    }
+    ((min_x + max_x) / 2.0, (min_y + max_y) / 2.0)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -415,5 +488,38 @@ mod tests {
         let y = vec![0.0, 0.0, 0.0];
         let result = __hayashi_impl_inverse_distance_weights(x, y, 1.0);
         assert_eq!(result.len(), 3);
+    }
+
+    #[test]
+    fn test_wkt_to_coords_point() {
+        let geoms = vec![
+            Geometry::from_wkt("POINT(-43.5 -22.9)"),
+            Geometry::from_wkt("POINT(-46.6 -23.5)"),
+        ];
+        let coords = __hayashi_impl_wkt_to_coords(geoms);
+        let xs = &coords["x"];
+        let ys = &coords["y"];
+        assert!((xs[0] - (-43.5)).abs() < 1e-9);
+        assert!((ys[0] - (-22.9)).abs() < 1e-9);
+        assert!((xs[1] - (-46.6)).abs() < 1e-9);
+        assert!((ys[1] - (-23.5)).abs() < 1e-9);
+    }
+
+    #[test]
+    fn test_wkt_to_coords_polygon_centroid() {
+        // Quadrado unitário centrado em (0.5, 0.5)
+        let geoms = vec![Geometry::from_wkt(
+            "POLYGON((0 0, 1 0, 1 1, 0 1, 0 0))",
+        )];
+        let coords = __hayashi_impl_wkt_to_coords(geoms);
+        assert!((coords["x"][0] - 0.5).abs() < 1e-9);
+        assert!((coords["y"][0] - 0.5).abs() < 1e-9);
+    }
+
+    #[test]
+    fn test_parse_wkt_centroid_empty() {
+        let (x, y) = parse_wkt_centroid("");
+        assert!(x.is_nan());
+        assert!(y.is_nan());
     }
 }
