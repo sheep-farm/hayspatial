@@ -1,0 +1,10 @@
+[plugin]
+name = "hayspatial"
+version = "0.1.0"
+author = "sheep-farm"
+description = "Spatial econometrics plugin for Hayashi"
+license = "MIT"
+repository = "https://github.com/sheep-farm/hayspatial"
+
+[hayashi]
+min_version = "0.2.0"

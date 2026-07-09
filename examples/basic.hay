@@ -1,0 +1,45 @@
+// Spatial econometrics examples with hayspatial
+import("sheep-farm/hayspatial", as=sp)
+
+// ── Spatial weight matrix ─────────────────────────────────────────────────────
+// 5 locations on a line; each connected to its immediate neighbours
+let W = [
+    [0.0, 1.0, 0.0, 0.0, 0.0],
+    [1.0, 0.0, 1.0, 0.0, 0.0],
+    [0.0, 1.0, 0.0, 1.0, 0.0],
+    [0.0, 0.0, 1.0, 0.0, 1.0],
+    [0.0, 0.0, 0.0, 1.0, 0.0]
+]
+
+// Row-standardise manually (each row sums to 1)
+let W_std = [
+    [0.0, 1.0, 0.0, 0.0, 0.0],
+    [0.5, 0.0, 0.5, 0.0, 0.0],
+    [0.0, 0.5, 0.0, 0.5, 0.0],
+    [0.0, 0.0, 0.5, 0.0, 0.5],
+    [0.0, 0.0, 0.0, 1.0, 0.0]
+]
+
+// ── 1. Moran's I ──────────────────────────────────────────────────────────────
+// Values with a clear spatial trend → expect positive Moran's I
+let values = [1.0, 2.0, 3.0, 4.0, 5.0]
+let mi = sp::morans_i(values, W_std)
+print("Moran's I:", mi)   // expected: close to 1.0 (strong positive autocorrelation)
+
+// ── 2. Geary's C ──────────────────────────────────────────────────────────────
+let gc = sp::gearys_c(values, W_std)
+print("Geary's C:", gc)   // expected: close to 0.0 (strong positive autocorrelation)
+
+// ── 3. Spatial lag ────────────────────────────────────────────────────────────
+let lag = sp::spatial_lag(values, W_std)
+print("Spatial lag:", lag)
+
+// ── 4. Distance matrix ────────────────────────────────────────────────────────
+let x_coords = [0.0, 1.0, 2.0, 3.0, 4.0]
+let y_coords = [0.0, 0.0, 0.0, 0.0, 0.0]
+let dm = sp::distance_matrix(x_coords, y_coords)
+print("Distance matrix row 0:", dm[0])
+
+// ── 5. Inverse distance weights ───────────────────────────────────────────────
+let idw = sp::inverse_distance_weights(x_coords, y_coords, 1.0)
+print("IDW matrix row 0:", idw[0])

@@ -1,3 +1,4 @@
+#![allow(clippy::not_unsafe_ptr_arg_deref)]
 use hayashi_plugin_sdk::{hayashi_fn, hayashi_plugin};
 
 hayashi_plugin!();
@@ -17,7 +18,7 @@ pub fn morans_i(values: Vec<f64>, weights: Vec<Vec<f64>>) -> f64 {
     let numerator: f64 = values.iter().enumerate().map(|(i, &yi)| {
         weights.iter().take(n).map(|row| {
             if let Some(&wj) = row.get(i) {
-                let yj = values.iter().nth(i).unwrap_or(&0.0);
+                let yj = values.get(i).unwrap_or(&0.0);
                 wj * (yj - mean) * (yi - mean)
             } else {
                 0.0
@@ -50,7 +51,7 @@ pub fn gearys_c(values: Vec<f64>, weights: Vec<Vec<f64>>) -> f64 {
     let numerator: f64 = values.iter().enumerate().map(|(i, &yi)| {
         weights.iter().take(n).map(|row| {
             if let Some(&wj) = row.get(i) {
-                let yj = values.iter().nth(i).unwrap_or(&0.0);
+                let yj = values.get(i).unwrap_or(&0.0);
                 wj * (yj - yi).powi(2)
             } else {
                 0.0
@@ -82,7 +83,7 @@ pub fn spatial_lag(values: Vec<f64>, weights: Vec<Vec<f64>>) -> Vec<f64> {
     values.iter().enumerate().map(|(i, _yi)| {
         weights.iter().take(n).map(|row| {
             if let Some(&wj) = row.get(i) {
-                let yj = values.iter().nth(i).unwrap_or(&0.0);
+                let yj = values.get(i).unwrap_or(&0.0);
                 wj * yj
             } else {
                 0.0
@@ -135,6 +136,7 @@ pub fn inverse_distance_weights(x_coords: Vec<f64>, y_coords: Vec<f64>, alpha: f
     }
     
     // Row normalize
+    #[allow(clippy::needless_range_loop)]
     for i in 0..n {
         let row_sum: f64 = weights[i].iter().sum();
         if row_sum > 0.0 {
@@ -168,7 +170,7 @@ pub fn local_moran(values: Vec<f64>, weights: Vec<Vec<f64>>) -> Vec<f64> {
     values.iter().enumerate().map(|(i, _yi)| {
         let local_sum: f64 = weights.iter().take(n).map(|row| {
             if let Some(&wj) = row.get(i) {
-                let yj = values.iter().nth(i).unwrap_or(&0.0);
+                let yj = values.get(i).unwrap_or(&0.0);
                 wj * (yj - mean)
             } else {
                 0.0
@@ -201,7 +203,7 @@ pub fn getis_ord_g(values: Vec<f64>, weights: Vec<Vec<f64>>) -> Vec<f64> {
     values.iter().enumerate().map(|(i, _yi)| {
         let local_sum: f64 = weights.iter().take(n).map(|row| {
             if let Some(&wj) = row.get(i) {
-                let yj = values.iter().nth(i).unwrap_or(&0.0);
+                let yj = values.get(i).unwrap_or(&0.0);
                 wj * yj
             } else {
                 0.0
@@ -264,7 +266,7 @@ pub fn spatial_weights_knn(x_coords: Vec<f64>, y_coords: Vec<f64>, k: i64) -> Ve
             }
         }).collect();
         
-        distances.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap());
+        distances.sort_by(|a, b| a.1.total_cmp(&b.1));
         
         for (idx, _) in distances.iter().take(k) {
             weights[i][*idx] = 1.0 / k as f64;
@@ -308,11 +310,13 @@ pub fn spatial_correlogram(values: Vec<f64>, weights: Vec<Vec<f64>>, max_lag: i6
 mod tests {
     use super::*;
 
+    // #[hayashi_fn] renomeia a fn original para __hayashi_impl_<nome>.
+
     #[test]
     fn test_morans_i() {
         let values = vec![1.0, 2.0, 3.0, 4.0, 5.0];
         let weights = vec![vec![0.0, 0.5, 0.5, 0.0, 0.0]; 5];
-        let result = morans_i(values, weights);
+        let result = __hayashi_impl_morans_i(values, weights);
         assert!(result >= -1.0 && result <= 1.0);
     }
 
@@ -320,7 +324,7 @@ mod tests {
     fn test_distance_matrix() {
         let x = vec![0.0, 1.0, 2.0];
         let y = vec![0.0, 0.0, 0.0];
-        let result = distance_matrix(x, y);
+        let result = __hayashi_impl_distance_matrix(x, y);
         assert_eq!(result.len(), 3);
         assert_eq!(result[0][1], 1.0);
     }
@@ -329,7 +333,7 @@ mod tests {
     fn test_spatial_lag() {
         let values = vec![1.0, 2.0, 3.0];
         let weights = vec![vec![0.0, 0.5, 0.5]; 3];
-        let result = spatial_lag(values, weights);
+        let result = __hayashi_impl_spatial_lag(values, weights);
         assert_eq!(result.len(), 3);
     }
 
@@ -337,7 +341,7 @@ mod tests {
     fn test_inverse_distance_weights() {
         let x = vec![0.0, 1.0, 2.0];
         let y = vec![0.0, 0.0, 0.0];
-        let result = inverse_distance_weights(x, y, 1.0);
+        let result = __hayashi_impl_inverse_distance_weights(x, y, 1.0);
         assert_eq!(result.len(), 3);
     }
 }
